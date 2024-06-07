@@ -7,7 +7,6 @@
 - Blazing Fast
 - No Proxies Required
 - No Rate Limit
-- Sorts Different Subscriptions in Different Folders
 ## ⚠️ Steps of Usage
 1. Run `pip install -r requirements.txt` command
 2. Paste Netscape or Json Cookies in /cookies/ folder 
