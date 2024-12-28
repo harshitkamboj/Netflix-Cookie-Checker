@@ -1,3 +1,5 @@
+# STATUS - WORKING..
+
 # 🔥 Netflix Cookie Checker
 # ⭐ Give Star to Repo for Support
 ## ⚡ Features
