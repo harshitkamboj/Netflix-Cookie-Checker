@@ -15,7 +15,7 @@ A powerful, multi-threaded Netflix cookie validator that checks cookie validity,
 
 ## 📋 Requirements
 
-`pip install requests colorama`
+```pip install requests colorama```
 
 ## 🚀 Quick Start
 
@@ -26,7 +26,7 @@ cd netflix-cookie-checker
 ```
 
 3. **Install dependencies**
-`pip install -r requirements.txt`
+```pip install -r requirements.txt```
 
 4. **Setup your files**
    - Add your Netflix cookies (`.txt` or `.json` format) to the `cookies/` folder
