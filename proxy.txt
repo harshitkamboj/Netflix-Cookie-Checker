@@ -1,0 +1,3 @@
+add proxy here, 1 per line
+
+ip:port or ip:port@user:pass
