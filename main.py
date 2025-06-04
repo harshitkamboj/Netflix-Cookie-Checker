@@ -255,7 +255,7 @@ def handle_successful_login(cookie_file, info, is_subscribed):
     
     # Check for duplicates
     if is_duplicate_guid(user_guid):
-        print(colorama.Fore.GREY + f"> Duplicate user GUID {user_guid} found. Skipping {cookie_file}." + colorama.Fore.RESET)
+        print(colorama.Fore.WHITE + f"> Duplicate user GUID {user_guid} found. Skipping {cookie_file}." + colorama.Fore.RESET)
         if os.path.exists(cookie_file):
             os.remove(cookie_file)
         return
