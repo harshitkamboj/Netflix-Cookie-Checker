@@ -20,29 +20,33 @@ A powerful, multi-threaded Netflix cookie validator that checks cookie validity,
 ## 🚀 Quick Start
 
 1. **Clone the repository**
-`git clone https://github.com/harshitkamboj/netflix-cookie-checker.git
-cd netflix-cookie-checker`
+```
+git clone https://github.com/harshitkamboj/netflix-cookie-checker.git
+cd netflix-cookie-checker
+```
 
-2. **Install dependencies**
+3. **Install dependencies**
 `pip install -r requirements.txt`
 
-3. **Setup your files**
+4. **Setup your files**
    - Add your Netflix cookies (`.txt` or `.json` format) to the `cookies/` folder
    - Add proxies to `proxy.txt` (optional but recommended)
 
-4. **Run the checker**
+5. **Run the checker**
 `python main.py`
 
 ## 📁 Folder Structure
 
-`├── cookies/ # Input folder for your cookies
+```
+├── cookies/ # Input folder for your cookies
 ├── hits/ # Working subscribed accounts
 ├── free/ # Working but unsubscribed accounts
 ├── failures/ # Invalid/expired cookies
 ├── broken/ # Malformed cookie files
 ├── json_cookies_after_conversion/ # Processed JSON files
 ├── proxy.txt # Your proxy list (optional)
-└── main.py # Main script`
+└── main.py # Main script
+```
 
 ## 🍪 Cookie Formats Supported
 
@@ -50,7 +54,8 @@ cd netflix-cookie-checker`
 `.netflix.com TRUE / FALSE 1234567890 cookie_name cookie_value`
 
 ### JSON Format (.json)
-`[
+```
+[
 {
 "domain": ".netflix.com",
 "flag": "TRUE",
@@ -60,16 +65,19 @@ cd netflix-cookie-checker`
 "name": "cookie_name",
 "value": "cookie_value"
 }
-]`
+]
+```
 
 ## 🌐 Proxy Setup
 
 Create a `proxy.txt` file with your proxies (one per line):
 
-`ip:port
+```
+ip:port
 user:pass@ip:port
 http://ip:port
-http://user:pass@ip:port`
+http://user:pass@ip:port
+```
 
 ## 📊 Output Examples
 
