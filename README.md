@@ -57,7 +57,7 @@ python main.py
 ## 🍪 Cookie Formats Supported
 
 ### Netscape Format (.txt)
-`.netflix.com TRUE / FALSE 1234567890 cookie_name cookie_value`
+```.netflix.com TRUE / FALSE 1234567890 cookie_name cookie_value```
 
 ### JSON Format (.json)
 ```
