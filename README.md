@@ -1,4 +1,4 @@
-# 🎬 Netflix Cookie Checker
+# 🎬 Netflix Cookie Checker V2
 
 A powerful, multi-threaded Netflix cookie validator that checks cookie validity, extracts account information, and organizes results efficiently.
 
@@ -163,10 +163,6 @@ The checker provides detailed statistics:
 ## ⚠️ Disclaimer
 
 This tool is for educational purposes only. Please ensure you have permission to test the cookies you're using. Respect Netflix's terms of service and rate limits.
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🌟 Support
 
