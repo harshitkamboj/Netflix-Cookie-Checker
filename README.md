@@ -2,13 +2,14 @@
 
 Fast multi-threaded Netflix cookie checker with broad cookie parsing, proxy retry rotation, NFToken generation, detailed account extraction, and Discord/Telegram notifications.
 
-## Download
+## Download EXE
 
 Download the latest Windows build if you do not want to run Python:
 
 - Releases: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases
 - Latest release: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases/latest
-- Discord server: https://discord.gg/DYJFE9nu5X
+  
+## Discord server: https://discord.gg/DYJFE9nu5X
 
 ## Features
 
