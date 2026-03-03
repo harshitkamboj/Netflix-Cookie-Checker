@@ -1,7 +1,9 @@
 # 🎬 Netflix Cookie Checker V2
+A powerful, multi-threaded Netflix cookie validator that checks cookie validity, extracts account information, and organizes results efficiently.
+
+## Discord: https://discord.gg/DYJFE9nu5X
 ## New update coming soon within March 1st week!!
 
-A powerful, multi-threaded Netflix cookie validator that checks cookie validity, extracts account information, and organizes results efficiently.
 
 ## ✨ Features
 
@@ -185,5 +187,6 @@ If you found this tool helpful, please:
   <br>
   <i>Star ⭐ this repo if you found it useful!</i>
 </div>
+
 
 
