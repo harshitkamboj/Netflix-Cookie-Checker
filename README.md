@@ -1,192 +1,251 @@
-# 🎬 Netflix Cookie Checker V2
-A powerful, multi-threaded Netflix cookie validator that checks cookie validity, extracts account information, and organizes results efficiently.
+# Netflix Cookie Checker V3
 
-## Discord: https://discord.gg/DYJFE9nu5X
-## New update coming soon within March 1st week!!
+Fast multi-threaded Netflix cookie checker with broad cookie parsing, proxy retry rotation, NFToken generation, detailed account extraction, and Discord/Telegram notifications.
 
+## Download
 
-## ✨ Features
+Download the latest Windows build if you do not want to run Python:
 
-- 🚀 **Multi-threaded Processing** - Fast concurrent cookie validation
-- 🌐 **Proxy Support** - Rotate through multiple proxies to avoid rate limiting
-- 📊 **Detailed Account Info** - Extract plan details, country, member status, and more
-- 🔄 **Auto Format Conversion** - Convert JSON cookies to Netscape format
-- 📁 **Smart Organization** - Automatically sort results into different folders
-- 🔍 **Duplicate Detection** - Prevent duplicate accounts using User GUID tracking
-- 📈 **Real-time Statistics** - Live progress tracking and final results
-- 🎨 **Colorful Interface** - Beautiful console output with status indicators
+- Releases: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases
+- Latest release: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases/latest
+- Discord server: https://discord.gg/DYJFE9nu5X
 
-## 📋 Requirements
+## Features
 
-```
-pip install requests colorama
-```
+- Fast multi-threaded cookie checking
+- Supports Netscape `.txt` and JSON cookie formats
+- Detailed account extraction with clean hit output
+- Optional NFToken generation for quick login access
+- Strong proxy support with retry rotation on bad responses
+- Broad proxy format support including auth and SOCKS formats
+- Clean duplicate filtering to avoid repeated hits
+- Clear result separation for subscribed, free, duplicate, failed, and broken
+- Organized output by run folder and plan type
+- Discord and Telegram notifications
+- Two display modes: `log` and `simple`
+- Configurable txt output fields for cleaner saved results
+- Auto-recreates missing config, proxy file, and working folders
 
-## 🚀 Quick Start
+## Requirements
 
-1. **Clone the repository**
-```
-git clone https://github.com/harshitkamboj/netflix-cookie-checker.git
-cd netflix-cookie-checker
-```
-
-3. **Install dependencies**
-```
+```bash
 pip install -r requirements.txt
 ```
 
-5. **Setup your files**
-   - Add your Netflix cookies (`.txt` or `.json` format) to the `cookies/` folder
-   - Add proxies to `proxy.txt` (optional but recommended)
+Optional for SOCKS proxies:
 
-6. **Run the checker**
+```bash
+pip install requests[socks]
 ```
+
+## Quick Start
+
+1. Clone the repo:
+
+```bash
+git clone https://github.com/harshitkamboj/Netflix-Cookie-Checker.git
+cd Netflix-Cookie-Checker
+```
+
+2. Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Put cookie files in `cookies/`
+4. Optionally add proxies in `proxy.txt`
+5. Edit `config.yml` if needed
+6. Run:
+
+```bash
 python main.py
 ```
 
-## 📁 Folder Structure
+## Folder Layout
 
-```
-├── cookies/ # Input folder for your cookies
-├── hits/ # Working subscribed accounts
-├── free/ # Working but unsubscribed accounts
-├── failures/ # Invalid/expired cookies
-├── broken/ # Malformed cookie files
-├── json_cookies_after_conversion/ # Processed JSON files
-├── proxy.txt # Your proxy list (optional)
-└── main.py # Main script
+```text
+cookies/                # input cookies
+output/                 # checked results
+output/run_YYYY-MM-DD.../
+output/run_.../Premium/
+output/run_.../Standard/
+output/run_.../Standard With Ads/
+output/run_.../Basic/
+output/run_.../Mobile/
+output/run_.../Free/
+output/run_.../Duplicate/
+failed/                 # invalid / incomplete cookies
+broken/                 # malformed / retry-exhausted / proxy-error cases
+proxy.txt
+config.yml
+main.py
 ```
 
-## 🍪 Cookie Formats Supported
+## Supported Cookie Formats
 
-### Netscape Format (.txt)
-```
-.netflix.com TRUE / FALSE 1234567890 cookie_name cookie_value
+### Netscape (`.txt`)
+
+```text
+.netflix.com	TRUE	/	TRUE	1234567890	NetflixId	xxx
+.netflix.com	TRUE	/	TRUE	1234567890	SecureNetflixId	xxx
+.netflix.com	TRUE	/	TRUE	1234567890	nfvdid	xxx
 ```
 
-### JSON Format (.json)
-```
+### JSON (`.json`)
+
+```json
 [
-{
-"domain": ".netflix.com",
-"flag": "TRUE",
-"path": "/",
-"secure": false,
-"expiration": "1234567890",
-"name": "cookie_name",
-"value": "cookie_value"
-}
+  {
+    "domain": ".netflix.com",
+    "path": "/",
+    "secure": true,
+    "expirationDate": 1234567890,
+    "name": "NetflixId",
+    "value": "xxx"
+  }
 ]
 ```
 
-## 🌐 Proxy Setup
+## Proxy Formats
 
-Create a `proxy.txt` file with your proxies (one per line):
+One per line in `proxy.txt`:
 
-```
+```text
 ip:port
 user:pass@ip:port
+ip:port@user:pass
 http://ip:port
 http://user:pass@ip:port
+https://user:pass@ip:port
+socks4://user:pass@ip:port
+socks4a://user:pass@ip:port
+socks5://user:pass@ip:port
+socks5h://user:pass@ip:port
+ip:port:user:pass
+user:pass:ip:port
+ip:port user:pass
+ip:port|user:pass
+ip:port;user:pass
+ip:port,user:pass
 ```
 
-## 📊 Output Examples
+Also accepted and normalized:
 
-### Working Subscribed Account (hits/)
-```
-Filename: 4_US_github-harshitkamboj_True_abc123.txt
-
-Max Streams: 4 Screens
-Plan: Premium
-Country: US
-Member Since: January 2023
-Extra members: Yes✅
-Checker By: github.com/harshitkamboj
-Netflix Cookie 👇
-
-[original cookie content]
+```text
+http:/ip:port
 ```
 
-### Working Free Account (free/)
+## Config
+
+### Main Sections
+
+- `txt_fields`: controls which fields are written into output txt files
+- `nftoken`: enables or disables NFToken generation
+- `notifications`: Discord / Telegram settings and mode
+- `display`: console UI mode (`log` or `simple`)
+- `retries`: retry counts for retryable request and proxy errors
+
+### Default Example
+
+```yml
+txt_fields:
+  plan: true
+  country: true
+  quality: true
+  max_streams: true
+  next_billing: true
+  payment_method: true
+  extra_members: true
+  profiles: true
+
+nftoken: false
+
+notifications:
+  webhook:
+    enabled: false
+    url: ""
+    mode: "full" # full | cookie | nftoken
+    plans: "all"
+  telegram:
+    enabled: false
+    bot_token: ""
+    chat_id: ""
+    mode: "full" # full | cookie | nftoken
+    plans: "all"
+
+display:
+  mode: "simple" # log | simple
+
+retries:
+  error_proxy_attempts: 3
+  nftoken_attempts: 1
 ```
-Filename: PaymentM-False_US_github-harshitkamboj_xyz789.txt
 
-Payment Method: False
-Country: US
-Checker By: github.com/harshitkamboj
-Netflix Cookie 👇
+### Advanced TXT Fields
 
-[original cookie content]
-```
+You can enable these for more detailed output:
 
-## ⚙️ Configuration
+- `name`
+- `email`
+- `member_since`
+- `card`
+- `phone`
+- `hold_status`
+- `email_verified`
+- `membership_status`
+- `user_guid`
 
-You can modify these settings in the script:
+## Notification Modes
 
-- **Thread Count**: Change `num_threads` parameter (default: 20)
-- **Timeout**: Modify request timeout (default: 30 seconds)
-- **Retry Strategy**: Adjust retry attempts and backoff
+### `full`
 
-## 📈 Statistics
+- Sends formatted account details
+- Sends the output txt file as the attachment
 
-The checker provides detailed statistics:
-- 📈 Total cookies checked
-- ✅ Working subscribed accounts
-- ❌ Working but unsubscribed accounts  
-- 💀 Dead/expired cookies
+### `cookie`
 
-## 🔧 Advanced Features
+- Sends formatted account details in the message
+- Sends the raw cookie content as the attachment
 
-### Duplicate Prevention
-- Automatically detects duplicate accounts using User GUID
-- Generates unique identifiers for unknown users
-- Prevents storage of duplicate results
+### `nftoken`
 
-### Smart Error Handling
-- Handles malformed cookies gracefully
-- Proxy fallback mechanism
-- Automatic retry on network errors
+- Sends only the generated NFToken link
+- Includes estimated expiry in UTC
 
-### Account Information Extraction
-- Plan type and pricing tier
-- Country of registration
-- Member since date
-- Maximum concurrent streams
-- Extra member availability
-- Payment method status
+## Retry Behavior
 
-## 🤝 Contributing
+- Retries per cookie: `retries.error_proxy_attempts`
+- Rotates proxies across retries when available
+- Retryable status codes: `403`, `429`, `500`, `502`, `503`, `504`
+- Retryable failures exhausted move to `broken/`
+- Invalid or dead cookies move to `failed/`
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+## Output Notes
 
-## ⚠️ Disclaimer
+- Output is grouped into per-run folders under `output/`
+- Plan folders are created automatically (`Premium`, `Standard`, `Standard With Ads`, `Basic`, `Mobile`, `Free`, `Duplicate`)
+- Full output txt includes account details, NFTokens (if enabled), and the cookie block
+- NFToken expiry is written as an estimated 1-hour UTC timestamp
 
-This tool is for educational purposes only. Please ensure you have permission to test the cookies you're using. Respect Netflix's terms of service and rate limits.
+## Auto-Recovery
 
-## 🌟 Support
+- If `config.yml` is missing, it is recreated automatically
+- If `config.yml` is invalid, it is replaced with the default commented config
+- If `cookies`, `output`, `failed`, or `broken` are missing, they are recreated automatically
+- If `proxy.txt` is missing, it is recreated automatically with examples
 
-If you found this tool helpful, please:
-- ⭐ Star this repository
-- 🍴 Fork and share with others
-- 🐛 Report any issues you find
-- 💡 Suggest new features
+## Contact
 
-## 📞 Contact
+- GitHub: https://github.com/harshitkamboj
+- Website: https://harshitkamboj.in
+- Discord username: `illuminatis69`
+- Discord server: https://discord.gg/DYJFE9nu5X
 
-- **GitHub**: [@harshitkamboj](https://github.com/harshitkamboj)
-- **Discord**: illuminatis69
+## License
 
----
+MIT License. See `LICENSE`.
 
-<div align="center">
-  <b>Made with ❤️</b>
-  <br>
-  <i>Star ⭐ this repo if you found it useful!</i>
-</div>
+## Disclaimer
 
-
-
+Educational use only. Use only on accounts and cookies you are authorized to test.
