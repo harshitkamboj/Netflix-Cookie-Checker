@@ -213,8 +213,8 @@ performance:
 
 ## NFToken Mode Links
 
-- `pc`: `https://netflix.com/unsupported?nftoken=...`
-- `mobile`: `https://netflix.com/account?nftoken=...`
+- `pc`: `https://netflix.com/?nftoken=...`
+- `mobile`: `https://netflix.com/unsupported?nftoken=...`
 - `both`: sends both links in Discord/Telegram/txt
 
 ## Notification Labels
