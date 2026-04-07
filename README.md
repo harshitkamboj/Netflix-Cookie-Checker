@@ -6,6 +6,7 @@ Fast multi-threaded Netflix cookie checker with improved speed controls, better 
 
 - Releases: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases
 - Latest release: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases/latest
+- Discord: https://discord.gg/DYJFE9nu5X
 
 ## What Is New In V4
 
@@ -241,6 +242,7 @@ Txt output stays plain text by design.
 - Website: https://harshitkamboj.in
 - Discord username: `illuminatis69`
 - Discord profile: https://discord.com/users/1171797848078172173
+- Discord server: https://discord.gg/DYJFE9nu5X
 
 ## License
 
