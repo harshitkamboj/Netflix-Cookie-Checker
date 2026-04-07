@@ -1,5 +1,8 @@
 # Netflix Cookie Checker V3
 
+# New Update 1-2 Hour (updated 7 april) 
+##join discord for more
+
 Fast multi-threaded Netflix cookie checker with broad cookie parsing, proxy retry rotation, NFToken generation, detailed account extraction, and Discord/Telegram notifications.
 
 ## Download EXE
