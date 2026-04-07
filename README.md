@@ -1,31 +1,37 @@
-# Netflix Cookie Checker V3
+# Netflix Cookie Checker V4
 
-Fast multi-threaded Netflix cookie checker with broad cookie parsing, proxy retry rotation, NFToken generation, detailed account extraction, and Discord/Telegram notifications.
+Fast multi-threaded Netflix cookie checker with improved speed controls, better plan parsing, extra-member separation, NFToken mode links, and richer Telegram/Discord formatting.
 
 ## Download EXE
 
-Download the latest Windows build if you do not want to run Python:
-
 - Releases: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases
 - Latest release: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases/latest
-  
-## Discord server: https://discord.gg/DYJFE9nu5X
+
+## What Is New In V4
+
+- V4 core version (`4.0.0`) with faster default processing
+- New `performance` config section for timeout/fallback/retry tuning
+- `nftoken` now supports mode values: `pc`, `mobile`, `both`, or `false`
+- NFToken links now support direct mode-specific login URLs
+- Plan price extraction improved and shown as `Price` in txt output
+- Extra-member accounts are separated to `Premium (Extra Member)`
+- Simple display mode shows extra-member counts as a grey sub-line
+- Added emoji labels for Discord/Telegram details and NFToken links
+- Added broader localized plan/extra-member language handling
 
 ## Features
 
 - Fast multi-threaded cookie checking
 - Supports Netscape `.txt` and JSON cookie formats
-- Detailed account extraction with clean hit output
-- Optional NFToken generation for quick login access
-- Strong proxy support with retry rotation on bad responses
-- Broad proxy format support including auth and SOCKS formats
-- Clean duplicate filtering to avoid repeated hits
-- Clear result separation for subscribed, free, duplicate, failed, and broken
-- Organized output by run folder and plan type
-- Discord and Telegram notifications
-- Two display modes: `log` and `simple`
-- Configurable txt output fields for cleaner saved results
-- Auto-recreates missing config, proxy file, and working folders
+- Detailed account extraction with configurable txt fields
+- Optional NFToken generation with mode-specific links
+- Strong proxy support with retry rotation on retryable errors
+- Broad proxy format support including SOCKS schemes
+- Duplicate filtering to avoid repeated hits
+- Organized output by run and plan bucket
+- Discord and Telegram notifications (`full`, `cookie`, `nftoken`)
+- Display modes: `log` and `simple`
+- Auto-recovery for missing config/proxy/folders
 
 ## Requirements
 
@@ -41,56 +47,60 @@ pip install requests[socks]
 
 ## Quick Start
 
-1. Clone the repo:
+1. Clone the repo.
 
 ```bash
 git clone https://github.com/harshitkamboj/Netflix-Cookie-Checker.git
 cd Netflix-Cookie-Checker
 ```
 
-2. Install dependencies:
+2. Install dependencies.
 
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Put cookie files in `cookies/`
-4. Optionally add proxies in `proxy.txt`
-5. Edit `config.yml` if needed
+3. Put cookie files in `cookies/`.
+4. Optionally add proxies in `proxy.txt`.
+5. Edit `config.yml` if needed.
 6. Run:
 
 ```bash
 python main.py
 ```
 
-## Folder Layout
+## Output Layout
 
 ```text
-cookies/                # input cookies
-output/                 # checked results
-output/run_YYYY-MM-DD.../
+cookies/
+output/
+output/run_YYYY-MM-DD_HH-MM-SS/
 output/run_.../Premium/
+output/run_.../Premium (Extra Member)/
 output/run_.../Standard/
 output/run_.../Standard With Ads/
 output/run_.../Basic/
 output/run_.../Mobile/
 output/run_.../Free/
 output/run_.../Duplicate/
-failed/                 # invalid / incomplete cookies
-broken/                 # malformed / retry-exhausted / proxy-error cases
+output/run_.../Unknown/
+failed/
+broken/
 proxy.txt
 config.yml
 main.py
 ```
+
+Extra-member accounts are saved only in `Premium (Extra Member)`.
 
 ## Supported Cookie Formats
 
 ### Netscape (`.txt`)
 
 ```text
-.netflix.com	TRUE	/	TRUE	1234567890	NetflixId	xxx
-.netflix.com	TRUE	/	TRUE	1234567890	SecureNetflixId	xxx
-.netflix.com	TRUE	/	TRUE	1234567890	nfvdid	xxx
+.netflix.com  TRUE  /  TRUE  1234567890  NetflixId  xxx
+.netflix.com  TRUE  /  TRUE  1234567890  SecureNetflixId  xxx
+.netflix.com  TRUE  /  TRUE  1234567890  nfvdid  xxx
 ```
 
 ### JSON (`.json`)
@@ -139,28 +149,39 @@ http:/ip:port
 
 ## Config
 
-### Main Sections
+### Main sections
 
-- `txt_fields`: controls which fields are written into output txt files
-- `nftoken`: enables or disables NFToken generation
-- `notifications`: Discord / Telegram settings and mode
-- `display`: console UI mode (`log` or `simple`)
-- `retries`: retry counts for retryable request and proxy errors
+- `txt_fields`: controls which lines are written to output txt
+- `nftoken`: `false`, `"pc"`, `"mobile"`, `"both"` (or `true` as `"both"`)
+- `notifications`: Discord webhook and Telegram settings
+- `display`: console mode (`log` or `simple`)
+- `retries`: retry counts for network/proxy and NFToken requests
+- `performance`: speed/reliability tradeoff options
 
-### Default Example
+### Default example
 
 ```yml
 txt_fields:
+  name: false
+  email: false
   plan: true
   country: true
+  member_since: false
   quality: true
   max_streams: true
+  plan_price: true
   next_billing: true
   payment_method: true
+  card: false
+  phone: false
+  hold_status: false
   extra_members: true
+  email_verified: false
+  membership_status: false
   profiles: true
+  user_guid: false
 
-nftoken: false
+nftoken: false # false | "pc" | "mobile" | "both" (true => "both")
 
 notifications:
   webhook:
@@ -181,67 +202,45 @@ display:
 retries:
   error_proxy_attempts: 3
   nftoken_attempts: 1
+
+performance:
+  request_timeout_seconds: 15
+  fallback_account_page: false
+  retry_incomplete_info: false
+  nftoken_for_free: false
 ```
 
-### Advanced TXT Fields
+## NFToken Mode Links
 
-You can enable these for more detailed output:
+- `pc`: `https://netflix.com/unsupported?nftoken=...`
+- `mobile`: `https://netflix.com/account?nftoken=...`
+- `both`: sends both links in Discord/Telegram/txt
 
-- `name`
-- `email`
-- `member_since`
-- `card`
-- `phone`
-- `hold_status`
-- `email_verified`
-- `membership_status`
-- `user_guid`
+## Notification Labels
 
-## Notification Modes
+Discord and Telegram messages include emoji labels (for example `📌 Status`, `💰 Price`, `📺 Streams`, `👥 Extra Member`).
 
-### `full`
-
-- Sends formatted account details
-- Sends the output txt file as the attachment
-
-### `cookie`
-
-- Sends formatted account details in the message
-- Sends the raw cookie content as the attachment
-
-### `nftoken`
-
-- Sends only the generated NFToken link
-- Includes estimated expiry in UTC
+Txt output stays plain text by design.
 
 ## Retry Behavior
 
 - Retries per cookie: `retries.error_proxy_attempts`
-- Rotates proxies across retries when available
-- Retryable status codes: `403`, `429`, `500`, `502`, `503`, `504`
-- Retryable failures exhausted move to `broken/`
-- Invalid or dead cookies move to `failed/`
-
-## Output Notes
-
-- Output is grouped into per-run folders under `output/`
-- Plan folders are created automatically (`Premium`, `Standard`, `Standard With Ads`, `Basic`, `Mobile`, `Free`, `Duplicate`)
-- Full output txt includes account details, NFTokens (if enabled), and the cookie block
-- NFToken expiry is written as an estimated 1-hour UTC timestamp
+- Proxy rotates between retries when available
+- Retryable HTTP statuses: `403`, `429`, `500`, `502`, `503`, `504`
+- Retry-exhausted retryable cases go to `broken/`
+- Invalid/dead cookies go to `failed/`
 
 ## Auto-Recovery
 
-- If `config.yml` is missing, it is recreated automatically
-- If `config.yml` is invalid, it is replaced with the default commented config
-- If `cookies`, `output`, `failed`, or `broken` are missing, they are recreated automatically
-- If `proxy.txt` is missing, it is recreated automatically with examples
+- Recreates missing `config.yml`, `proxy.txt`, `cookies/`, `output/`, `failed/`, `broken/`
+- If config is invalid, it is replaced with the default commented config
 
 ## Contact
 
 - GitHub: https://github.com/harshitkamboj
 - Website: https://harshitkamboj.in
 - Discord username: `illuminatis69`
-- Discord server: https://discord.gg/DYJFE9nu5X
+- Discord profile: https://discord.com/users/1171797848078172173
 
 ## License
 
