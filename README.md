@@ -1,6 +1,6 @@
-# Netflix Cookie Checker V4
+# Netflix Cookie Checker V4.5
 
-Fast multi-threaded Netflix cookie checker with improved speed controls, better plan parsing, extra-member separation, NFToken mode links, and richer Telegram/Discord formatting.
+Fast multi-threaded Netflix cookie checker with speed controls, extra-member separation, on-hold plan routing, flexible emoji modes, and richer Telegram/Discord formatting.
 
 ## Download EXE
 
@@ -8,17 +8,15 @@ Fast multi-threaded Netflix cookie checker with improved speed controls, better 
 - Latest release: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases/latest
 - Discord: https://discord.gg/DYJFE9nu5X
 
-## What Is New In V4
+## What Is New In V4.5
 
-- V4 core version (`4.0.0`) with faster default processing
-- New `performance` config section for timeout/fallback/retry tuning
-- `nftoken` now supports mode values: `pc`, `mobile`, `both`, or `false`
-- NFToken links now support direct mode-specific login URLs
-- Plan price extraction improved and shown as `Price` in txt output
-- Extra-member accounts are separated to `Premium (Extra Member)`
-- Simple display mode shows extra-member counts as a grey sub-line
-- Added emoji labels for Discord/Telegram details and NFToken links
-- Added broader localized plan/extra-member language handling
+- On-hold subscribed accounts are now routed to `output/run_.../On Hold/<Plan>/`
+- Added `OnHold` counter in console summary and title output
+- `Unknown` plan line is hidden in console until at least one unknown account exists
+- New `add_emojis` config mode: `false`, `"txt"`, `"webhook"`, `"both"` (`true` => `"both"`)
+- Emoji behavior is now configurable separately for txt vs notification messages
+- Cookie parsing normalizes cookie-name casing more reliably
+- Hold-status extraction improved for additional GraphQL/fallback patterns
 
 ## Features
 
@@ -84,7 +82,11 @@ output/run_.../Basic/
 output/run_.../Mobile/
 output/run_.../Free/
 output/run_.../Duplicate/
-output/run_.../Unknown/
+output/run_.../On Hold/Premium/
+output/run_.../On Hold/Standard/
+output/run_.../On Hold/Basic/
+output/run_.../On Hold/Mobile/
+output/run_.../Unknown/   # created only when needed
 failed/
 broken/
 proxy.txt
@@ -93,6 +95,7 @@ main.py
 ```
 
 Extra-member accounts are saved only in `Premium (Extra Member)`.
+On-hold folders are created only when at least one on-hold subscribed account is found.
 
 ## Supported Cookie Formats
 
@@ -154,6 +157,7 @@ http:/ip:port
 
 - `txt_fields`: controls which lines are written to output txt
 - `nftoken`: `false`, `"pc"`, `"mobile"`, `"both"` (or `true` as `"both"`)
+- `add_emojis`: controls emoji labels in txt and/or webhook/Telegram messages
 - `notifications`: Discord webhook and Telegram settings
 - `display`: console mode (`log` or `simple`)
 - `retries`: retry counts for network/proxy and NFToken requests
@@ -183,6 +187,7 @@ txt_fields:
   user_guid: false
 
 nftoken: false # false | "pc" | "mobile" | "both" (true => "both")
+add_emojis: "webhook" # false | "txt" | "webhook" | "both" (true => "both")
 
 notifications:
   webhook:
@@ -219,9 +224,12 @@ performance:
 
 ## Notification Labels
 
-Discord and Telegram messages include emoji labels (for example `📌 Status`, `💰 Price`, `📺 Streams`, `👥 Extra Member`).
+Emoji labels are controlled by `add_emojis`:
 
-Txt output stays plain text by design.
+- `false`: no emojis in txt or notifications
+- `"txt"`: emojis only in saved txt output
+- `"webhook"`: emojis only in Discord/Telegram notifications
+- `"both"` or `true`: emojis in both txt and notifications
 
 ## Retry Behavior
 
@@ -242,7 +250,7 @@ Txt output stays plain text by design.
 - Website: https://harshitkamboj.in
 - Discord username: `illuminatis69`
 - Discord profile: https://discord.com/users/1171797848078172173
-- Discord server: https://discord.gg/DYJFE9nu5X
+- Discord: https://discord.gg/DYJFE9nu5X
 
 ## License
 

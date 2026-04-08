@@ -26,6 +26,7 @@ txt_fields:
   user_guid: false # user GUID extracted from account data
 
 nftoken: true # allowed: "pc", "mobile", "both" or false (case-insensitive, true => "both")
+add_emojis: "webhook" # allowed: false, "txt", "webhook", "both"; "webhook" = Discord/Telegram notification messages only (not TXT files); true => "both"
 
 notifications:
   webhook:
@@ -45,7 +46,7 @@ display:
   mode: "simple" # allowed: "log" or "simple"
 
 retries:
-  error_proxy_attempts: 5 # retry attempts on network/proxy errors (rotates proxy each try)
+  error_proxy_attempts: 4 # retry attempts on network/proxy errors (rotates proxy each try)
   nftoken_attempts: 5 # retry attempts for NFToken creation
 
 performance:
