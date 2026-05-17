@@ -1,0 +1,9 @@
+telegram_jobs/
+__pycache__/
+*.pyc
+node_modules/
+.wrangler/
+broken/
+failed/
+output/
+cookies/*.txt

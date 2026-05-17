@@ -1,0 +1,71 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "netflix-checker-telegram-bot",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-05-17",
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "JOB_STATE",
+        "class_name": "JobState"
+      },
+      {
+        "name": "ACCESS_CONTROL",
+        "class_name": "AccessControl"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "JobState"
+      ]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": [
+        "AccessControl"
+      ]
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "CHECK_QUEUE",
+        "queue": "netflix-checker-jobs"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "netflix-checker-jobs",
+        "type": "worker",
+        "max_batch_size": 5,
+        "max_batch_timeout": 2,
+        "max_retries": 1,
+        "max_concurrency": 5
+      }
+    ]
+  },
+  "vars": {
+    "MAX_FILE_BYTES": "30000000",
+    "MAX_ARCHIVE_FILES": "1000",
+    "NETFLIX_REQUEST_TIMEOUT_MS": "6000",
+    "NFTOKEN_REQUEST_TIMEOUT_MS": "9000",
+    "NFTOKEN_ATTEMPTS": "1",
+    "PROGRESS_EDIT_INTERVAL_MS": "1200",
+    "PROGRESS_NOTIFY_EVERY": "1",
+    "FREE_MAX_COOKIES_PER_SCAN": "100",
+    "FREE_DAILY_SCAN_LIMIT": "2",
+    "FREE_SCAN_COOLDOWN_MS": "1800000",
+    "FREE_LIMIT_TIME_ZONE": "Asia/Dhaka",
+    "SCANNER_HANDLE": "@terousd_netflixchk_bot",
+    "RESULT_CAPTION": "Scanned by : @terousd_netflixchk_bot",
+    "ADMIN_CHAT_IDS": "6712205222",
+    "OWNER_USERNAME": "@terousd"
+  }
+}
