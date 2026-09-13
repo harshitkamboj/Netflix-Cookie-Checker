@@ -1,4 +1,4 @@
-# Netflix Cookie Checker V4.5
+# Netflix Cookie Checker V4.5 (Working)
 
 Fast multi-threaded Netflix cookie checker with speed controls, extra-member separation, on-hold plan routing, flexible emoji modes, and richer Telegram/Discord formatting.
 
