@@ -1,36 +1,58 @@
-# Netflix Cookie Checker V4.5 (Working)
+# Netflix Cookie Checker v4.6
 
-Fast multi-threaded Netflix cookie checker with speed controls, extra-member separation, on-hold plan routing, flexible emoji modes, and richer Telegram/Discord formatting.
+A multi-threaded Netflix cookie checker with configurable account details, PC/mobile/TV login links, plan-based output folders, and Discord/Telegram notifications.
 
-## Download EXE
+## Downloads
 
-- Releases: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases
-- Latest release: https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases/latest
-- Discord: https://discord.gg/DYJFE9nu5X
+- [EXE releases](https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases)
+- [Latest published release](https://github.com/harshitkamboj/Netflix-Cookie-Checker/releases/latest)
+- [Discord community](https://discord.gg/DYJFE9nu5X)
 
-## What Is New In V4.5
+## What's New in v4.6
 
-- On-hold subscribed accounts are now routed to `output/run_.../On Hold/<Plan>/`
-- Added `OnHold` counter in console summary and title output
-- `Unknown` plan line is hidden in console until at least one unknown account exists
-- New `add_emojis` config mode: `false`, `"txt"`, `"webhook"`, `"both"` (`true` => `"both"`)
-- Emoji behavior is now configurable separately for txt vs notification messages
-- Cookie parsing normalizes cookie-name casing more reliably
-- Hold-status extraction improved for additional GraphQL/fallback patterns
+### New features
+
+- **TV Login links:** added `📺 TV Login` alongside PC and mobile links in saved TXT files and Discord/Telegram notifications.
+- **Choose any devices:** use `"pc"`, `"mobile"`, or `"tv"` individually, or select two with `"pc/tv"`, `"pc/mobile"`, or `"mobile/tv"`.
+- **All devices in one setting:** `nftoken: true` or `nftoken: "all"` includes PC, mobile, and TV links.
+- **Consistent notification output:** the selected devices appear in `full` and `nftoken` notification modes when token generation succeeds. The `cookie` mode remains cookie-only.
+
+### Fixes and compatibility
+
+- Fixed NFToken mode handling so TV and slash-separated selections produce the requested links instead of falling back to PC + mobile.
+- Device combinations accept mixed case, surrounding spaces, and either device order; repeated devices produce only one link.
+- Preserved `"both"` as the legacy PC + mobile option; `false` still disables NFToken generation.
+- Corrected the README's on-hold folder layout and extra-member descriptions to match the checker.
+
+### Example
+
+```yml
+nftoken: true # All three devices: PC, mobile, and TV
+# Alternatively: "pc", "mobile", "tv", "pc/tv", "pc/mobile", "mobile/tv", or false
+# Case-insensitive; legacy "both" means PC + mobile.
+```
+
+TV link format: `https://netflix.com/tv2?nftoken=...`. The TV emoji follows the existing `add_emojis` setting.
 
 ## Features
 
-- Fast multi-threaded cookie checking
-- Supports Netscape `.txt` and JSON cookie formats
-- Detailed account extraction with configurable txt fields
-- Optional NFToken generation with mode-specific links
-- Strong proxy support with retry rotation on retryable errors
-- Broad proxy format support including SOCKS schemes
-- Duplicate filtering to avoid repeated hits
-- Organized output by run and plan bucket
-- Discord and Telegram notifications (`full`, `cookie`, `nftoken`)
-- Display modes: `log` and `simple`
-- Auto-recovery for missing config/proxy/folders
+- **Flexible NFToken login links:** optional generation with PC, mobile, TV, or selected device combinations, plus an expiry timestamp in the output.
+- **Detailed account information:** plan, country, quality, streams, price, billing date, payment details, profiles, and other fields controlled through `txt_fields`.
+- **Discord and Telegram notifications:** `full`, `cookie`, and `nftoken` modes, with plan filters and configurable emoji labels.
+- **Organized results:** separate folders for each run, plan, free accounts, duplicates, and extra-member accounts; on-hold accounts go into their plan's `On Hold/` subfolder.
+- **Flexible cookie input:** Netscape TXT and JSON formats, including multiple Netflix cookie bundles in one file.
+- **Configurable checking:** multiple worker threads, request timeout, retry counts, optional fallback account page, and optional retries for incomplete account information.
+- **Proxy support:** HTTP, HTTPS, and SOCKS schemes, authenticated proxy formats, and proxy rotation between retries when proxies are available.
+- **Duplicate detection:** filters repeated accounts within a run using email or account identifier.
+- **Clear progress display:** compact dashboard or per-result logs, plan counts, and status counters for hits, free accounts, duplicates, on-hold accounts, failures, and errors.
+- **Automatic setup recovery:** recreates missing configuration, proxy file, and required folders.
+
+## Previous Release: v4.5
+
+- Added on-hold output routing and an `OnHold` counter.
+- Hid the unknown-plan counter until an unknown account is found.
+- Added separate emoji modes for TXT files and notification messages.
+- Improved cookie-name casing normalization and hold-status extraction.
 
 ## Requirements
 
@@ -82,10 +104,10 @@ output/run_.../Basic/
 output/run_.../Mobile/
 output/run_.../Free/
 output/run_.../Duplicate/
-output/run_.../On Hold/Premium/
-output/run_.../On Hold/Standard/
-output/run_.../On Hold/Basic/
-output/run_.../On Hold/Mobile/
+output/run_.../Premium/On Hold/
+output/run_.../Standard/On Hold/
+output/run_.../Basic/On Hold/
+output/run_.../Mobile/On Hold/
 output/run_.../Unknown/   # created only when needed
 failed/
 broken/
@@ -94,8 +116,10 @@ config.yml
 main.py
 ```
 
-Extra-member accounts are saved only in `Premium (Extra Member)`.
-On-hold folders are created only when at least one on-hold subscribed account is found.
+Extra-member accounts are saved in their corresponding `<Plan> (Extra Member)/` folder.
+On-hold folders use `<Plan>/On Hold/` and are created only when an on-hold subscribed account is found.
+
+Processed source cookie files are moved or removed as results are saved. Keep a backup if you need the original input files.
 
 ## Supported Cookie Formats
 
@@ -156,7 +180,7 @@ http:/ip:port
 ### Main sections
 
 - `txt_fields`: controls which lines are written to output txt
-- `nftoken`: `false`, `"pc"`, `"mobile"`, `"both"` (or `true` as `"both"`)
+- `nftoken`: `false` to disable; `true` or `"all"` for all three devices; `"pc"`, `"mobile"`, or `"tv"` for one device; slash-separated combinations such as `"pc/tv"` for two. Values are case-insensitive; legacy `"both"` still means PC + mobile.
 - `add_emojis`: controls emoji labels in txt and/or webhook/Telegram messages
 - `notifications`: Discord webhook and Telegram settings
 - `display`: console mode (`log` or `simple`)
@@ -186,7 +210,9 @@ txt_fields:
   profiles: true
   user_guid: false
 
-nftoken: false # false | "pc" | "mobile" | "both" (true => "both")
+nftoken: false # false = disabled; true or "all" = PC, mobile, and TV links
+# Select one: "pc", "mobile", "tv"; combine with "/": "pc/tv", "pc/mobile", "mobile/tv".
+# Values are case-insensitive; legacy "both" = "pc/mobile".
 add_emojis: "webhook" # false | "txt" | "webhook" | "both" (true => "both")
 
 notifications:
@@ -218,9 +244,27 @@ performance:
 
 ## NFToken Mode Links
 
-- `pc`: `https://netflix.com/?nftoken=...`
-- `mobile`: `https://netflix.com/unsupported?nftoken=...`
-- `both`: sends both links in Discord/Telegram/txt
+| `nftoken` value | Included login links |
+| --- | --- |
+| `false` | Disabled |
+| `true` or `"all"` | PC, mobile, and TV |
+| `"pc"` | PC only |
+| `"mobile"` | Mobile only |
+| `"tv"` | TV only |
+| `"pc/tv"` | PC and TV |
+| `"pc/mobile"` | PC and mobile |
+| `"mobile/tv"` | Mobile and TV |
+| `"both"` | PC and mobile (legacy option) |
+
+Device names are case-insensitive. Combinations may be written in either order, such as `"TV/PC"`.
+
+- PC: `https://netflix.com/?nftoken=...`
+- Mobile: `https://netflix.com/unsupported?nftoken=...`
+- TV: `https://netflix.com/tv2?nftoken=...`
+
+Selected links are included in saved TXT output for subscribed accounts when token generation succeeds. They also appear in enabled Discord/Telegram notifications using `full` or `nftoken` mode, subject to the configured plan filters. The `cookie` notification mode sends cookies without login links. Emoji display follows `add_emojis`.
+
+NFToken generation is disabled in the default configuration. Setting `performance.nftoken_for_free: true` permits token-generation requests for free accounts, but their current TXT and notification formatting does not include those links.
 
 ## Notification Labels
 

@@ -101,7 +101,9 @@ txt_fields:
   profiles: true # profile names
   user_guid: false # user GUID extracted from account data
 
-nftoken: false # allowed: "pc", "mobile", "both" or false (case-insensitive, true => "both")
+nftoken: false # false = disabled; true or "all" = PC, mobile, and TV links
+# Select one: "pc", "mobile", "tv"; combine with "/": "pc/tv", "pc/mobile", "mobile/tv".
+# Values are case-insensitive; legacy "both" = "pc/mobile".
 add_emojis: "webhook" # allowed: false, "txt", "webhook", "both"; "webhook" = Discord/Telegram notification messages only (not TXT files); true => "both"
 
 notifications:
@@ -144,7 +146,7 @@ by https://github.com/harshitkamboj | website: harshitkamboj.in | discord: https
                         (Star The Repo 🌟 and Share for more Checkers)
 """
 
-APP_VERSION = "4.5.0"
+APP_VERSION = "4.6.0"
 
 cookies_folder = "cookies"
 output_folder = "output"
@@ -1975,23 +1977,30 @@ def create_nftoken(cookie_dict, attempts=1):
 def get_nftoken_mode(config):
     raw_value = config.get("nftoken", False)
     if isinstance(raw_value, bool):
-        return "both" if raw_value else "false"
+        return "all" if raw_value else "false"
 
     raw_mode = str(raw_value).strip().lower()
     if raw_mode in {"false", "off", "none", "disabled", "disable", "0"}:
         return "false"
-    if raw_mode in {"pc", "desktop", "computer"}:
-        return "pc"
-    if raw_mode in {"mobile", "phone"}:
-        return "mobile"
-    if raw_mode in {"both", "all", "true", "on", "1"}:
-        return "both"
+    if raw_mode in {"all", "true", "on", "1"}:
+        return "all"
+    if raw_mode == "both":
+        return "both"  # Preserve the existing PC + mobile selection.
+
+    aliases = {"pc": "pc", "desktop": "pc", "computer": "pc",
+               "mobile": "mobile", "phone": "mobile", "tv": "tv"}
+    parts = [part.strip() for part in raw_mode.split("/")]
+    if parts and all(part in aliases for part in parts):
+        devices = {aliases[part] for part in parts}
+        if len(devices) == 3:
+            return "all"
+        return "/".join(device for device in ("pc", "mobile", "tv") if device in devices)
 
     legacy_value = config.get("txt_fields", {}).get("nftoken")
     if legacy_value is False:
         return "false"
     if legacy_value is True:
-        return "both"
+        return "all"
     return "both"
 
 
@@ -2024,18 +2033,22 @@ def should_add_emojis(config, target):
 
 def build_nftoken_links(token, mode):
     normalized_token = decode_netflix_value(token)
-    normalized_mode = str(mode or "false").strip().lower()
+    normalized_mode = get_nftoken_mode({"nftoken": mode})
     if not normalized_token or normalized_mode == "false":
         return []
 
-    if normalized_mode == "pc":
-        return [("🖥️ PC Login", f"https://netflix.com/?nftoken={normalized_token}")]
-    if normalized_mode == "mobile":
-        return [("📱 Phone Login", f"https://netflix.com/unsupported?nftoken={normalized_token}")]
-    return [
-        ("🖥️ PC Login", f"https://netflix.com/?nftoken={normalized_token}"),
-        ("📱 Phone Login", f"https://netflix.com/unsupported?nftoken={normalized_token}"),
+    if normalized_mode == "all":
+        devices = {"pc", "mobile", "tv"}
+    elif normalized_mode == "both":
+        devices = {"pc", "mobile"}
+    else:
+        devices = set(normalized_mode.split("/"))
+    links = [
+        ("pc", "🖥️ PC Login", f"https://netflix.com/?nftoken={normalized_token}"),
+        ("mobile", "📱 Phone Login", f"https://netflix.com/unsupported?nftoken={normalized_token}"),
+        ("tv", "📺 TV Login", f"https://netflix.com/tv2?nftoken={normalized_token}"),
     ]
+    return [(label, url) for device, label, url in links if device in devices]
 
 
 def get_nftoken_expiry_utc(expires=None):
@@ -3111,7 +3124,7 @@ def check_cookies(num_threads=30, config=None):
         random_suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
         if is_subscribed:
             max_streams = (info.get("maxStreams") or "Unknown").rstrip("}")
-            filename = f"{max_streams}_{country}_github-harshitkamboj_{info.get('showExtraMemberSection')}_{user_guid}_{random_suffix}.txt"
+            filename = f"{max_streams}_{country}_github-harshitkamboj_{info.get('showExtraMemberSection')}_{user_guid}.txt"
         else:
             has_payment_method = "True" if decode_netflix_value(info.get("paymentMethodType")) not in {None, "", "UNKNOWN", "Unknown", "N/A"} else "False"
             filename = f"PaymentM-{has_payment_method}_{country}_github-harshitkamboj_{user_guid}_{random_suffix}.txt"
@@ -3125,7 +3138,7 @@ def check_cookies(num_threads=30, config=None):
                     nftoken_data, _ = create_nftoken(cookie_dict, nftoken_retry_attempts)
                 formatted_cookie = format_cookie_file(info, netscape_content, config, is_subscribed, nftoken_data)
                 duplicate_dir = create_output_folder_when_needed(output_folder, get_canonical_output_label("duplicate"), run_folder)
-                duplicate_name = f"DUPLICATE_{filename}"
+                duplicate_name = f"DUPLICATE_{filename[:-4]}_{random_suffix}.txt" if is_subscribed else f"DUPLICATE_{filename}"
                 duplicate_target = os.path.join(duplicate_dir, duplicate_name)
                 write_text_file_safely(duplicate_target, formatted_cookie)
                 if remove_source and os.path.exists(cookie_path):

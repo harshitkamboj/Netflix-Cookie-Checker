@@ -25,7 +25,9 @@ txt_fields:
   profiles: true # profile names
   user_guid: false # user GUID extracted from account data
 
-nftoken: true # allowed: "pc", "mobile", "both" or false (case-insensitive, true => "both")
+nftoken: true # false = disabled; true or "all" = PC, mobile, and TV links
+# Select one: "pc", "mobile", "tv"; combine with "/": "pc/tv", "pc/mobile", "mobile/tv".
+# Values are case-insensitive; legacy "both" = "pc/mobile".
 add_emojis: "webhook" # allowed: false, "txt", "webhook", "both"; "webhook" = Discord/Telegram notification messages only (not TXT files); true => "both"
 
 notifications:
